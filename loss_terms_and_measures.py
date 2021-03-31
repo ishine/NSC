@@ -131,21 +131,19 @@ def mfcc_transform(the_stft, the_spectrum, is_finetuning=False):    # Warp the l
     num_spectrogram_bins = the_stft.shape[-1]
     sample_rate, lower_edge_hertz, upper_edge_hertz = 16000, 0.0, 8000.0
     selected_ind = [8, 16, 32, 128]
+    # selected_ind = [8, 16, 32]
     # selected_ind = [128]
-
     MEL_FILTERBANKS = []
     for num_mel_bins in selected_ind:
         linear_to_mel_weight_matrix = tf.compat.v2.signal.linear_to_mel_weight_matrix(
             num_mel_bins, num_spectrogram_bins, sample_rate, lower_edge_hertz, upper_edge_hertz)
         MEL_FILTERBANKS.append(linear_to_mel_weight_matrix)
-
+        # MEL_FILTERBANKS.shape = (257*num_mel_bins)
     transform = []
     for filter_bank in MEL_FILTERBANKS:
-        # mel_spectrograms = tf.tensordot(the_spectrum, filter_bank, 1) # axis = 1 means it's just mat mul.
         mel_spectrograms = tf.matmul(the_spectrum, filter_bank) # axis = 1 means it's just mat mul.
         log_mel_spectrograms = tf.math.log(mel_spectrograms + 1e-7)
         transform.append(log_mel_spectrograms)
-
     # Compute a stabilized log to get log-magnitude mel-scale spectrograms.
     return transform
 
@@ -167,6 +165,9 @@ def mfcc_loss(decoded_sig, original_sig, is_finetuning=False):
 
     distances = []
     for i in range(0, len(pvec_true)):
+        # For the highest resolution, focuse on low frequencies.
+        if pvec_pred[i].shape[0] == 128:
+            pvec_pred[i][64:] = pvec_true[i][64:]
         error = tf.expand_dims(mse_loss_v1(pvec_pred[i], pvec_true[i]), axis=-1)
         distances.append(error)
     distances = tf.concat(distances, axis=-1)
@@ -177,7 +178,6 @@ def mfcc_loss(decoded_sig, original_sig, is_finetuning=False):
 def tf_stft(sig, the_frame_length=frame_length):
     dec_stfts = tf.compat.v2.signal.stft(tf.reshape(sig, [-1, frame_length]), frame_length=the_frame_length,
                                          frame_step=int(the_frame_length), fft_length=the_frame_length, window_fn=None)
-    # dec_stfts = tf.compat.v2.signal.rfft(sig)
     dec_stfts = tf.reshape(dec_stfts, (-1, int(the_frame_length / 2) + 1))
     dec_spectrograms = tf.sqrt(tf.square(tf.math.real(dec_stfts)) + tf.square(tf.math.imag(dec_stfts)) + 1e-7)
     return dec_stfts, dec_spectrograms

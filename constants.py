@@ -2,19 +2,25 @@
 VERBOSE = False
 
 
-init_alpha = -500
+init_alpha = -300
 # init_alpha = -150
 # beta_boundary = 1
 beta_boundary = 1
 sample_rate = 16000  # 12800
 
 
-is_pure_time_domain = False
-
+is_pure_time_domain = True
+# resnet_type = 'bottleneck'  # quan loss should be with the blending weight of 10.0
+resnet_type = 'gln'
 if is_pure_time_domain:
     max_amp_tr = 33.461480140686035  # pure time domain
 else:
     max_amp_tr = 22.307652973859113  # lpc time domain
+
+
+mu_law_transform = False
+conv_mu = 63.0
+
 
 frame_length = 512
 overlap_each_side = 32
